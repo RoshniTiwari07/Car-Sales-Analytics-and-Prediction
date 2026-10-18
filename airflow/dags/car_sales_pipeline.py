@@ -1,10 +1,16 @@
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from airflow.sdk import DAG, task
 
-PROJECT_ROOT = "/opt/car_sales"
+PROJECT_ROOT = Path("/opt/car_sales")
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.mysql_validation import validate_row_counts
+
 
 def task_failure_callback(context) -> None:
     """Log useful information when an Airflow task fails."""
@@ -129,14 +135,7 @@ with DAG(
         finally:
             conn.close()
 
-        print(f"Expected rows: {expected_rows}")
-        print(f"MySQL rows: {actual_rows}")
-
-        if actual_rows != expected_rows:
-            raise ValueError(
-                f"MySQL row count mismatch: expected {expected_rows}, "
-                f"found {actual_rows}"
-            )
+        validate_row_counts(expected_rows, actual_rows)
     @task
     def sql_analysis():
         run_project_script("03_sql_analysis.py")
